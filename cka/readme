@@ -26,5 +26,12 @@ apt-get update
 apt-get install docker-ce -y
 docker run hello-world # verifies that docker is working
 
-# Now initialize a master node
+# Now initialize a master node on one of your instances
 kubeadm init
+# Log back into the other nodes and run the command you were given to join nodes to this cluster. Looks like this:
+kubeadm join 10.42.XXX.XXX:6443 --token depkxn.xxxxxxxxxxxxxxxx --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Go back into master node, and config kubectl as regular user
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
