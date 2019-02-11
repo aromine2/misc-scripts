@@ -1,7 +1,13 @@
-# Linux Commands to get a kuberentes cluster up and running.
+# First step is to create the nodes and load balancer. The NLB listens on port 6443 and sends to nodes on same port
+
+
+# Linux Commands to get a kuberentes cluster up and running. Login to each node and run script.
+sudo -i
+
+# starts a script, start with line below
+echo '
 
 # Do this on each node
-sudo -i
 apt-get update && apt-get install -y apt-transport-https curl
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
@@ -26,19 +32,35 @@ apt-get update
 apt-get install docker-ce -y
 docker run hello-world # verifies that docker is working
 
-# Now initialize a master node on one of your instances, the --pod-network-cider is for Canal, which handles the pod networking
-kubeadm init --pod-network-cidr=10.244.0.0/16
-# Log back into the other nodes and run the command you were given to join nodes to this cluster. Looks like this:
-kubeadm join 10.42.XXX.XXX:6443 --token depkxn.xxxxxxxxxxxxxxxx --discovery-token-ca-cert-hash sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# part of script
+' > c.sh && chmod +x c.sh && ./c.sh
+# script over
 
-# Go back into master node, and config kubectl as regular user
+---
+
+#Log into a node, make a kubeadm-config.yaml file with this:
+apiVersion: kubeadm.k8s.io/v1beta1
+kind: ClusterConfiguration
+kubernetesVersion: stable
+apiServer:
+  certSANs:
+  - "LOAD_BALANCER_DNS"
+controlPlaneEndpoint: "LOAD_BALANCER_DNS:6443"
+networking:
+  podSubnet: 192.168.0.0/16
+
+# create the cluster
+sudo kubeadm init --config=kubeadm-config.yaml --pod-network-cidr=192.168.0.0/16
+
+# in the output is this, save it.
+kubeadm join xxx.xxx.xxx.xxx:6443 --token xxxxxxxxxxxxxx --discovery-token-ca-cert-hash    sha256:somehashyyyyyzzzzz
+
+# make is so you can run stuff
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
-# Install canal stuff for pod networking
-kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/rbac.yaml
-kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/canal.yaml
+# apply calico
+kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
+kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
 
-#Remove master taint
-kubectl taint nodes --all node-role.kubernetes.io/master:NoSchedule-
