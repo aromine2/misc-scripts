@@ -1,0 +1,53 @@
+sudo -i
+
+echo '
+echo '
+# Do this on each node
+apt-get update && apt-get install -y apt-transport-https curl
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+apt-get update
+apt-get install -y kubelet kubeadm kubectl
+apt-mark hold kubelet kubeadm kubectl
+# Install docker on each too
+apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg-agent \
+    software-properties-common
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+   $(lsb_release -cs) \
+   stable"
+apt-get update
+apt-get install docker-ce -y
+docker run hello-world # verifies that docker is working
+
+# Needs to be copied from creation output, need to add the `--experimental-control-plane`
+kubeadm join <LOAD-BALANCER-URL>:6443 --token token.xxxxxxxxx --discovery-token-ca-cert-hash <HASH> --experimental-control-plane
+
+USER=ubuntu # customizable
+mkdir -p /etc/kubernetes/pki/etcd
+mv /home/${USER}/ca.crt /etc/kubernetes/pki/
+mv /home/${USER}/ca.key /etc/kubernetes/pki/
+mv /home/${USER}/sa.pub /etc/kubernetes/pki/
+mv /home/${USER}/sa.key /etc/kubernetes/pki/
+mv /home/${USER}/front-proxy-ca.crt /etc/kubernetes/pki/
+mv /home/${USER}/front-proxy-ca.key /etc/kubernetes/pki/
+mv /home/${USER}/etcd-ca.crt /etc/kubernetes/pki/etcd/ca.crt
+mv /home/${USER}/etcd-ca.key /etc/kubernetes/pki/etcd/ca.key
+mv /home/${USER}/admin.conf /etc/kubernetes/admin.conf
+' > add.sh 
+
+echo '
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+kubectl get nodes
+' > kubectl.sh && chmod +x add.sh kubectl.sh && sudo ./add.sh && ./kubectl.sh
+

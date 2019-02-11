@@ -1,44 +1,5 @@
-# First step is to create the nodes and load balancer. The NLB listens on port 6443 and sends to nodes on same port
-
-
-# Linux Commands to get a kuberentes cluster up and running. Login to each node and run script.
-sudo -i
-
-# starts a script, start with line below
 echo '
-
-# Do this on each node
-apt-get update && apt-get install -y apt-transport-https curl
-curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
-cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
-deb https://apt.kubernetes.io/ kubernetes-xenial main
-EOF
-apt-get update
-apt-get install -y kubelet kubeadm kubectl
-apt-mark hold kubelet kubeadm kubectl
-# Install docker on each too
-apt-get install -y \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg-agent \
-    software-properties-common
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-add-apt-repository \
-   "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) \
-   stable"
-apt-get update
-apt-get install docker-ce -y
-docker run hello-world # verifies that docker is working
-
-# part of script
-' > c.sh && chmod +x c.sh && ./c.sh
-# script over
-
----
-
-#Log into a node, make a kubeadm-config.yaml file with this:
+echo '
 apiVersion: kubeadm.k8s.io/v1beta1
 kind: ClusterConfiguration
 kubernetesVersion: stable
@@ -48,19 +9,19 @@ apiServer:
 controlPlaneEndpoint: "LOAD_BALANCER_DNS:6443"
 networking:
   podSubnet: 192.168.0.0/16
+' > kubeadm-config.yaml
 
-# create the cluster
-sudo kubeadm init --config=kubeadm-config.yaml --pod-network-cidr=192.168.0.0/16
-
-# in the output is this, save it.
-kubeadm join xxx.xxx.xxx.xxx:6443 --token xxxxxxxxxxxxxx --discovery-token-ca-cert-hash    sha256:somehashyyyyyzzzzz
-
-# make is so you can run stuff
-mkdir -p $HOME/.kube
-sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
-sudo chown $(id -u):$(id -g) $HOME/.kube/config
-
-# apply calico
-kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/rbac-kdd.yaml
-kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/kubernetes-datastore/calico-networking/1.7/calico.yaml
-
+USER=ubuntu # customizable
+CONTROL_PLANE_IPS="10.42.0.2 10.42.0.3"
+for host in ${CONTROL_PLANE_IPS}; do
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/ca.crt "${USER}"@$host:
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/ca.key "${USER}"@$host:
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/sa.key "${USER}"@$host:
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/sa.pub "${USER}"@$host:
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/front-proxy-ca.crt "${USER}"@$host:
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/front-proxy-ca.key "${USER}"@$host:
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/etcd/ca.crt "${USER}"@$host:etcd-ca.crt
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/pki/etcd/ca.key "${USER}"@$host:etcd-ca.key
+    scp -i ~/.ssh/ut-io-dsi-deploy.pem /etc/kubernetes/admin.conf "${USER}"@$host:
+done
+' > init.sh && chmod +x init.sh && sudo ./init.sh
