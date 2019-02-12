@@ -1,7 +1,6 @@
 sudo -i
 
 echo '
-echo '
 # Do this on each node
 apt-get update && apt-get install -y apt-transport-https curl
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
@@ -41,7 +40,7 @@ mv /home/${USER}/front-proxy-ca.key /etc/kubernetes/pki/
 mv /home/${USER}/etcd-ca.crt /etc/kubernetes/pki/etcd/ca.crt
 mv /home/${USER}/etcd-ca.key /etc/kubernetes/pki/etcd/ca.key
 mv /home/${USER}/admin.conf /etc/kubernetes/admin.conf
-' > add.sh 
+' > master-add.sh && chmod +x master-add.sh && 
 
 echo '
 mkdir -p $HOME/.kube
@@ -49,5 +48,5 @@ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 kubectl get nodes
-' > kubectl.sh && chmod +x add.sh kubectl.sh && sudo ./add.sh && ./kubectl.sh
+' > kubectl.sh && chmod +x kubectl.sh && ./kubectl.sh
 
